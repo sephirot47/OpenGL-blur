@@ -1,0 +1,14 @@
+#version 130
+
+uniform float time;
+uniform sampler2D renderedSceneTex;
+
+out vec2 fragCoord;
+in vec3 position;
+
+void main()  
+{  
+    gl_Position = vec4(position.xyz, 1.0);
+    fragCoord = vec2(position.x, position.y);
+}
+

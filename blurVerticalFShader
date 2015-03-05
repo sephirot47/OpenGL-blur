@@ -1,0 +1,27 @@
+#version 130	
+
+uniform float time;
+uniform float width, height;
+uniform sampler2D renderedSceneTex;
+
+in vec2 fragCoord;
+
+void main()  
+{  
+    float stepy = 1.0/height;
+    vec2 pix = vec2((fragCoord.x+1.0)/2.0, (fragCoord.y+1.0)/2.0);
+    vec4 sum = vec4(0);
+
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0,  stepy*4)) * 0.05;
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0,  stepy*3)) * 0.085;
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0,  stepy*2)) * 0.11;
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0,  stepy*1)) * 0.14;
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0,  stepy*0)) * 0.15;
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0, -stepy*1)) * 0.14;
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0, -stepy*2)) * 0.11;
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0, -stepy*3)) * 0.085;
+    sum += texture2D(renderedSceneTex, pix + vec2( 0.0, -stepy*4)) * 0.05;
+
+    gl_FragColor = sum;
+}
+
