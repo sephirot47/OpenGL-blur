@@ -23,7 +23,7 @@ const float screenMesh[18] = {-1.0f, -1.0f, 0.0f,
 
 
 
-const int width = 640, height = 480;
+const int width = 840, height = 680;
 
 GLuint vboId, vaoId, finalVboId, finalVaoId, frameBuffId, texId, depthBuffId,
        shaderProgramId, vShaderId, fShaderId, realTexId;
@@ -40,14 +40,14 @@ void Init()
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glEnable(GL_DEPTH_TEST);
 
-    ReadOBJ("gordaco.obj", vertexPos, vertexUv, vertexNormals, triangles);
+    ReadOBJ("luigi.obj", vertexPos, vertexUv, vertexNormals, triangles);
 
     //Creamos textura gordo
     unsigned char *texData;
     glGenTextures(1, &realTexId);
     glBindTexture(GL_TEXTURE_2D, realTexId);
     int tWidth, tHeight, n;
-    texData = ReadTexture("gordaco.bmp", n, tWidth, tHeight);
+    texData = ReadTexture("luigiD.jpg", n, tWidth, tHeight);
     glTexImage2D(GL_TEXTURE_2D, 0, n == 3 ? GL_RGB : GL_RGBA, tWidth, tHeight, 0,
                  n == 3 ? GL_RGB : GL_RGBA, GL_UNSIGNED_BYTE, texData);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -168,7 +168,7 @@ void RenderScene()
     glUniformMatrix4fv(glGetUniformLocation(program->GetId(), "transform"), 1, GL_FALSE, value_ptr(transform));
     glUniformMatrix4fv(glGetUniformLocation(program->GetId(), "projection"), 1, GL_FALSE, value_ptr(projection));
 
-    glDrawArrays(GL_TRIANGLES, 0, vertexPos.size());
+    glDrawArrays(triangles ? GL_TRIANGLES : GL_QUADS, 0, vertexPos.size());
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     program->UnUse();
@@ -205,8 +205,6 @@ void RenderScene()
     horProgram->UnUse();
     glBindVertexArray(0);
     //////////////////////////////////
-
-    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
     appTime += 0.03;
     rot += 0.05;

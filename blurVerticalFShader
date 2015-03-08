@@ -11,7 +11,7 @@ void main()
     vec2 pix = vec2((fragCoord.x+1.0)/2.0, (fragCoord.y+1.0)/2.0);
     vec4 sum = vec4(0);
 
-    float radius = round( (sin(time) + 1.0) * 3.0);
+    float radius = round( (sin(time) + 1.0) * 10.0);
     if(radius > 0.1)
     {
 	float stepy = 1.0/height, stepi = ( 1.0 / (radius * (radius + 1.0) - radius) );
