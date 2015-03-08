@@ -7,15 +7,12 @@
 #include <GL/glext.h>
 
 #include "../include/glm/glm.hpp"
+#include "../include/FileLoader.h"
 #include "../include/Shader.h"
 #include "../include/ShaderProgram.h"
 
 using namespace std;
 using namespace glm;
-
-const float triMesh[9] = {-1.0f, -1.0f, 0.0f,
-                           0.0f,  1.0f, 0.0f,
-                           1.0f, -1.0f, 0.0f};
 
 const float screenMesh[18] = {-1.0f, -1.0f, 0.0f,
                                1.0f, -1.0f, 0.0f,
@@ -29,16 +26,34 @@ const float screenMesh[18] = {-1.0f, -1.0f, 0.0f,
 const int width = 640, height = 480;
 
 GLuint vboId, vaoId, finalVboId, finalVaoId, frameBuffId, texId, depthBuffId,
-       shaderProgramId, vShaderId, fShaderId;
+       shaderProgramId, vShaderId, fShaderId, realTexId;
 
 Shader *vshader, *fshader, *finalVShader, *horShader, *verShader;
 ShaderProgram *program, *horProgram, *verProgram;
 
-unsigned char *image;
+vector<vec3> vertexPos, vertexNormals;
+vector<vec2> vertexUv;
+bool triangles;
 
 void Init()
 {
     glClearColor(0.0, 0.0, 0.0, 1.0);
+    glEnable(GL_DEPTH_TEST);
+
+    ReadOBJ("gordaco.obj", vertexPos, vertexUv, vertexNormals, triangles);
+
+    //Creamos textura gordo
+    unsigned char *texData;
+    glGenTextures(1, &realTexId);
+    glBindTexture(GL_TEXTURE_2D, realTexId);
+    int tWidth, tHeight, n;
+    texData = ReadTexture("gordaco.bmp", n, tWidth, tHeight);
+    glTexImage2D(GL_TEXTURE_2D, 0, n == 3 ? GL_RGB : GL_RGBA, tWidth, tHeight, 0,
+                 n == 3 ? GL_RGB : GL_RGBA, GL_UNSIGNED_BYTE, texData);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
     //Creamos shaders
     vshader = new Shader(); if( !vshader->Create("vshader", VertexShader) ) std::cout << "FUUUU" << std::endl;
@@ -51,7 +66,11 @@ void Init()
     //Creamos vbo
     glGenBuffers(1, &vboId);
     glBindBuffer(GL_ARRAY_BUFFER, vboId);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(triMesh), triMesh, GL_STATIC_DRAW);
+    int size = vertexPos.size() * sizeof(vec3) + vertexUv.size() * sizeof(vec2);
+    char *joinedData = new char[size];
+    memcpy(joinedData, &vertexPos[0], vertexPos.size() * sizeof(vec3));
+    memcpy((char*)(joinedData + vertexPos.size() * sizeof(vec3)), &vertexUv[0], vertexUv.size() * sizeof(vec2));
+    glBufferData(GL_ARRAY_BUFFER, size, joinedData, GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     //Creamos vao
@@ -59,8 +78,10 @@ void Init()
     glGenVertexArrays(1, &vaoId);
     glBindVertexArray(vaoId);
     glBindBuffer(GL_ARRAY_BUFFER, vboId);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(glGetAttribLocation(program->GetId(), "position"), 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(glGetAttribLocation(program->GetId(), "position"));
+    glVertexAttribPointer(glGetAttribLocation(program->GetId(), "inuv"), 2, GL_FLOAT, GL_FALSE, 0, (void*)(vertexPos.size() * sizeof(vec3)));
+    glEnableVertexAttribArray(glGetAttribLocation(program->GetId(), "inuv"));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -70,13 +91,12 @@ void Init()
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffId);
 
     glGenTextures(1, &texId);
-    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texId);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glGenRenderbuffers(1, &depthBuffId);
     glBindRenderbuffer(GL_RENDERBUFFER, depthBuffId);
@@ -125,15 +145,16 @@ float appTime = 0.0, rot = 0.0;
 
 void RenderScene()
 {
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffId);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBindVertexArray(vaoId);
     program->Use();
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, realTexId);
 
     mat4 transform(1.0f);
-    vec3 axis = vec3(0.0, 1.0, 0.0), translate(0.0, 0.0, -3.0), scale(0.5);
+    vec3 axis = vec3(0.0, 1.0, 0.0), translate(0.0, -1.0, -3.0), scale(0.01);
     mat4 T = glm::translate(transform, translate);
     mat4 R = glm::rotate_slow(transform, rot, axis);
     mat4 S = glm::scale(transform, scale);
@@ -143,24 +164,20 @@ void RenderScene()
     projection = perspective(45.0f * 3.1415f/180.0f, 1.0f, 0.1f, 100.0f);
 
     glUniform1f(glGetUniformLocation(program->GetId(), "time"), appTime);
+    glUniform1i(glGetUniformLocation(program->GetId(), "tex"), 0);
     glUniformMatrix4fv(glGetUniformLocation(program->GetId(), "transform"), 1, GL_FALSE, value_ptr(transform));
     glUniformMatrix4fv(glGetUniformLocation(program->GetId(), "projection"), 1, GL_FALSE, value_ptr(projection));
 
-    GLenum buffersEnum = {GL_COLOR_ATTACHMENT0};
-    glDrawBuffers(1, &buffersEnum);
+    glDrawArrays(GL_TRIANGLES, 0, vertexPos.size());
 
-    glViewport(0, 0, width, height); //draws?
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     program->UnUse();
     glBindVertexArray(0);
 
-    /// RENDER FINAL IMAGE /////////////////
-    glBindVertexArray(finalVaoId);
     /// BLUR VERTICAL
+    glBindVertexArray(finalVaoId);
     verProgram->Use();
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texId);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, texId);
 
     glUniform1i(glGetUniformLocation(verProgram->GetId(), "renderedSceneTex"), 0);
     glUniform1f(glGetUniformLocation(verProgram->GetId(), "width"), width);
@@ -169,14 +186,13 @@ void RenderScene()
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     verProgram->UnUse();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    ///BLUR HORIZONTAL
+    ///BLUR HORIZONTAL E IMAGEN FINAL
     horProgram->Use();
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texId);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, texId);
 
     glUniform1i(glGetUniformLocation(horProgram->GetId(), "renderedSceneTex"), 0);
     glUniform1f(glGetUniformLocation(horProgram->GetId(), "width"), width);
@@ -185,7 +201,7 @@ void RenderScene()
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     horProgram->UnUse();
     glBindVertexArray(0);
     //////////////////////////////////
@@ -193,7 +209,7 @@ void RenderScene()
     glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
     appTime += 0.03;
-    rot += 0.09;
+    rot += 0.05;
 }
 
 

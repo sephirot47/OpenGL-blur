@@ -7,21 +7,19 @@ uniform sampler2D renderedSceneTex;
 in vec2 fragCoord;
 
 void main()  
-{  
-    float stepx = 1.0/width;
+{
     vec2 pix = vec2((fragCoord.x+1.0)/2.0, (fragCoord.y+1.0)/2.0);
     vec4 sum = vec4(0);
 
-    sum += texture2D(renderedSceneTex, pix + vec2( stepx*4, 0.0)) * 0.05;
-    sum += texture2D(renderedSceneTex, pix + vec2( stepx*3, 0.0)) * 0.085;
-    sum += texture2D(renderedSceneTex, pix + vec2( stepx*2, 0.0)) * 0.11;
-    sum += texture2D(renderedSceneTex, pix + vec2( stepx*1, 0.0)) * 0.14;
-    sum += texture2D(renderedSceneTex, pix + vec2( stepx*0, 0.0)) * 0.15;
-    sum += texture2D(renderedSceneTex, pix + vec2(-stepx*1, 0.0)) * 0.14;
-    sum += texture2D(renderedSceneTex, pix + vec2(-stepx*2, 0.0)) * 0.11;
-    sum += texture2D(renderedSceneTex, pix + vec2(-stepx*3, 0.0)) * 0.085;
-    sum += texture2D(renderedSceneTex, pix + vec2(-stepx*4, 0.0)) * 0.05;
-
-    gl_FragColor = sum;
+    float radius = round( (sin(time) + 1.0) * 3.0);
+    if(radius > 0.1)
+    {
+	float stepx = 1.0/width, stepi = ( 1.0 / (radius * (radius + 1.0) - radius) );
+	for(float i = -radius; i <= radius; ++i)
+	{
+		sum += texture(renderedSceneTex, pix + vec2(stepx * i, 0.0)) * (radius - abs(i)) * stepi;
+	}
+    	gl_FragColor = sum;
+    }
+    else gl_FragColor = texture(renderedSceneTex, pix);
 }
-
